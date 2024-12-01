@@ -104,38 +104,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     // D3.js로 그래프 생성
-    const plotElement = document.getElementById('plot');
-    if (plotElement && typeof graphData !== 'undefined') {
-        const data = graphData.months.map((month, index) => ({
-            month: month,
-            count: graphData.counts[index]
-        }));
+    // D3.js로 그래프 생성
+const plotElement = document.getElementById('plot');
+if (plotElement && typeof graphData !== 'undefined') {
+    const data = graphData.months.map((month, index) => ({
+        month: month,
+        count: graphData.counts[index]
+    }));
 
-        const svg = d3.select("#plot");
-        const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-        const width = svg.node().getBoundingClientRect().width - margin.left - margin.right;
+    // SVG 초기화
+    const svg = d3.select("#plot");
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+
+    // 동적으로 크기 설정
+    const updateSize = () => {
+        const containerWidth = svg.node().getBoundingClientRect().width;
+        const width = containerWidth - margin.left - margin.right;
         const height = 400 - margin.top - margin.bottom;
 
+        svg.selectAll("*").remove(); // 기존 그래프 제거
+
+        // 그룹 요소 생성
         const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
+        // X축 설정
         const x = d3.scaleBand()
             .domain(data.map(d => d.month))
             .range([0, width])
             .padding(0.1);
 
+        // Y축 설정
         const y = d3.scaleLinear()
             .domain([0, d3.max(data, d => d.count)])
             .nice()
             .range([height, 0]);
 
+        // X축 그리기
         g.append("g")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).tickFormat(d => `Month ${d}`));
+            .call(d3.axisBottom(x).tickFormat(d => `Month ${d}`))
+            .selectAll("text") // X축 텍스트 스타일 조정
+            .style("text-anchor", "middle");
 
+        // Y축 그리기
         g.append("g")
             .call(d3.axisLeft(y).ticks(5));
 
-        g.selectAll(".bar")
+        // 막대 추가
+        const bars = g.selectAll(".bar")
             .data(data)
             .enter().append("rect")
             .attr("class", "bar")
@@ -145,8 +161,18 @@ document.addEventListener("DOMContentLoaded", function () {
             .attr("height", d => height - y(d.count))
             .attr("fill", "steelblue");
 
+        // 막대 위에 숫자 추가
+        g.selectAll(".label")
+            .data(data)
+            .enter().append("text")
+            .attr("class", "label")
+            .attr("x", d => x(d.month) + x.bandwidth() / 2)
+            .attr("y", d => y(d.count) - 5)
+            .attr("text-anchor", "middle")
+            .text(d => d.count);
+
         // 막대 클릭 이벤트
-        d3.selectAll(".bar").on("click", function (event, d) {
+        bars.on("click", function (event, d) {
             console.log(`Fetching data for month: ${d.month}`);
             fetch(`/get_data_by_month/${d.month}`)
                 .then(response => response.json())
@@ -156,7 +182,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
                 .catch(error => console.error("Error fetching data by month:", error));
         });
-    }
+    };
+
+    // 처음 로드 시 크기 설정
+    updateSize();
+
+    // 창 크기 변경 시 크기 업데이트
+    window.addEventListener("resize", updateSize);
+}
+
+
+
+
     // 데이터 초기화 버튼
     document.getElementById('showAll').addEventListener('click', function () {
         fetch('/get_data')
